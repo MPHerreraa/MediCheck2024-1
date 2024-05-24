@@ -1,0 +1,22 @@
+{
+  "name": "medicheck2024",
+  "version": "1.0.0",
+  "description": "Asana: https://app.asana.com/0/1207228159190612/1207228160627174",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-handlebars": "^7.1.2",
+    "firebase-admin": "^12.1.1",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
