@@ -12,12 +12,12 @@ const app = express();
 app.use(morgan('dev')) 
 
 // En cuanto carga la página, se realiza una petición GET 
-app.get('/', async (req, res) => {
+app.get('/eventos', async (req, res) => {
     // Se guardan los valores de la colección Eventos en la constante querySnapshot (lo primero que se verá en la página)
     const querySnapshot = await db.collection('Eventos').get()
 
     // Se imprimen por consola el nombre y el valor de los elementos de querySnapshot 
-    console.log(querySnapshot.docs[0].data()); 
+    res.send((querySnapshot.docs[0].data())); 
 
     // Envía una respuesta a la petición diciendo "Hola"
     res.send('Hola')
