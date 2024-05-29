@@ -18,10 +18,7 @@ app.get('/eventos', async (req, res) => {
 
     // Se imprimen por consola el nombre y el valor de los elementos de querySnapshot 
     res.send((querySnapshot.docs[0].data())); 
-
-    // Envía una respuesta a la petición diciendo "Hola"
-    res.send('Hola')
 })
 
 // Exporta la constante app para que ezpress pueda ser utilizado en otros archivos
-module.exports = app;
+module.exports = app; 
