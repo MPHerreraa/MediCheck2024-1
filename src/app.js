@@ -32,6 +32,7 @@ const predefinedData = {
     MinSueño: true,
     NombreMdicamento: "Ibuprofeno",
     NombreVacuna: "COVID-19",
+    TimestampMedicacion: new Date().toISOString(),
     Vacunacion: true,
 };
 
