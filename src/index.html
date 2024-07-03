@@ -1,31 +1,53 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generar Datos</title> <!-- Título de la página -->
-    <link rel="stylesheet" href="app.js.css">
+    <title>Formulario de Evento</title>
 </head>
 <body>
-    <h1>Generar Datos Predeterminados</h1> <!-- Encabezado de la página -->
-    <button id="generateDataBtn">Generar Datos</button> <!-- Botón para generar datos predeterminados -->
-    <div id="response"></div> <!-- Div para mostrar la respuesta -->
+    <form id="eventoForm">
+        <label for="fechaVacuna">Fecha de Vacunación:</label>
+        <input type="date" id="fechaVacuna" name="fechaVacuna" required>
+       
+        <label for="horaVacuna">Hora de Vacunación:</label>
+        <input type="time" id="horaVacuna" name="horaVacuna" required>
+       
+        <label for="fechaMedicacion">Fecha de Medicación:</label>
+        <input type="date" id="fechaMedicacion" name="fechaMedicacion" required>
+       
+        <label for="horaMedicacion">Hora de Medicación:</label>
+        <input type="time" id="horaMedicacion" name="horaMedicacion" required>
+
+        <!-- Otros campos del formulario si es necesario -->
+
+        <button type="submit">Enviar</button>
+    </form>
 
     <script>
-        // Añade un event listener al botón para manejar el evento de clic
-        document.getElementById('generateDataBtn').addEventListener('click', async () => {
-            const responseDiv = document.getElementById('response'); // Obtiene el div donde se mostrará la respuesta
-            responseDiv.textContent = 'Generando datos...'; // Muestra un mensaje indicando que se están generando los datos
-            try {
-                const response = await fetch('/eventos', { // Realiza una solicitud POST al endpoint /eventos
-                    method: 'POST' // Método de la solicitud
-                });
-                const data = await response.json(); // Parsea la respuesta como JSON
-                responseDiv.textContent = `Datos generados con ID: ${data.id}`; // Muestra el ID del documento creado en el div de respuesta
-            } catch (error) {
-                responseDiv.textContent = 'Error generando datos'; // Muestra un mensaje de error en caso de fallo
-                console.error('Error:', error); // Muestra el error en la consola
-            }
+        document.getElementById('eventoForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+           
+            const fechaVacuna = document.getElementById('fechaVacuna').value;
+            const horaVacuna = document.getElementById('horaVacuna').value;
+            const fechaMedicacion = document.getElementById('fechaMedicacion').value;
+            const horaMedicacion = document.getElementById('horaMedicacion').value;
+            // Obtén otros valores del formulario si es necesario
+
+            const response = await fetch('/eventos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    fechaVacuna,
+                    horaVacuna,
+                    fechaMedicacion,
+                    horaMedicacion,
+                    // Otros valores si es necesario
+                }),
+            });
+
+            const data = await response.json();
+            console.log(data);
         });
     </script>
 </body>
