@@ -4,7 +4,8 @@
   "description": "Asana: https://app.asana.com/0/1207228159190612/1207228160627174",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
   },
   "keywords": [],
   "author": "",
