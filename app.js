@@ -4,7 +4,7 @@ const morgan = require('morgan');
 const path = require('path'); // Importa el módulo path para manejar rutas de archivos
 
 // Importación de la constante db del archivo firebase.js
-const {db} = require('./firebase')
+const {db} = require('./src/firebase')
 
 // Declaración de la constante app, la cual permite utilizar express
 const app = express();
