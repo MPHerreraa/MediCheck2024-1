@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login y Registro</title>
+</head>
+<body>
+    <div id="authContainer">
+        <h2>Registro</h2>
+        <form id="registerForm">
+            <input type="text" id="registerUsername" placeholder="Nombre de usuario" required>
+            <input type="email" id="registerEmail" placeholder="Correo electrónico" required>
+            <input type="password" id="registerPassword" placeholder="Contraseña" required>
+            <button type="submit">Registrarse</button>
+        </form>
+        <h2>Inicio de sesión</h2>
+        <form id="loginForm">
+            <input type="text" id="loginUsername" placeholder="Nombre de usuario" required>
+            <input type="password" id="loginPassword" placeholder="Contraseña" required>
+            <button type="submit">Iniciar sesión</button>
+        </form>
+        <button id="googleLogin">Iniciar sesión con Google</button>
+    </div>
+    <div id="calendarContainer" style="display:none;">
+        <h2>Calendario</h2>
+        <!-- Aquí va el código de tu calendario -->
+    </div>
+
+
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
+    <script src="./src/firebase-config.js"></script>
+    <script src="./src/auth.js"></script>
+</body>
+</html>

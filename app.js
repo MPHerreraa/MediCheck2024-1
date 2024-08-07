@@ -1,74 +1,98 @@
-// Importación de express (framework web para Node.js) y morgan (middleware para registrar peticiones HTTP)
 const express = require('express');
 const morgan = require('morgan');
-const path = require('path'); // Importa el módulo path para manejar rutas de archivos
+const path = require('path');
+const { db, admin } = require('./src/firebase');
 
-// Importación de la constante db del archivo firebase.js
-const {db} = require('./src/firebase')
-
-// Declaración de la constante app, la cual permite utilizar express
 const app = express();
 
 app.use(express.json());
 app.use(morgan('dev'));
 
-// En cuanto carga la página, se realiza una petición GET
 app.get('/eventos', async (req, res) => {
-    // Se guardan los valores de la colección Eventos en la constante querySnapshot (lo primero que se verá en la página)
-    const querySnapshot = await db.collection('Eventos').get()
+    const querySnapshot = await db.collection('Eventos').get();
+    res.send(querySnapshot.docs.map(doc => doc.data()));
+});
 
-    // Se imprimen por consola el nombre y el valor de los elementos de querySnapshot
-    res.send((querySnapshot.docs[0].data()));
-})
+// Endpoint para cargar una vacuna en un día específico
+app.post('/vacuna', async (req, res) => {
+    const { diaDeEvento, nombreVacuna, notasVacunacion } = req.body;
 
-// Datos predeterminados para insertar en la colección 'Eventos'
-const predefinedData = {
-    ActividadFisica: false,
-    AlimentacionSaludable: false,
-    ConsumoDeAlcohol: false,
-    ConsumoDeTabaco: false,
-    FechaVacuna: new Date().toISOString(),
-    Medicacion: false,
-    MinSueño: false,
-    NombreMdicamento: "",
-    NombreVacuna: "",
-    TimestampMedicacion: new Date().toISOString(),
-    Vacunacion: false,
-};
-
-// Endpoint POST para insertar datos predeterminados en la colección 'Eventos'
-app.post('/eventos', async (req, res) => {
-    const { fechaVacuna, horaVacuna, fechaMedicacion, horaMedicacion } = req.body;
-
-    // Validar que las fechas y horas estén en el formato correcto
-    if (!fechaVacuna || !horaVacuna || !fechaMedicacion || !horaMedicacion) {
-        return res.status(400).send({ error: 'Fecha y hora son requeridas para la vacunación y la medicación' });
+    if (!diaDeEvento || !nombreVacuna) {
+        return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
 
-    // Combinar fecha y hora en un solo objeto Date para la vacuna
-    const combinedDateTimeVacuna = new Date(`${fechaVacuna}T${horaVacuna}`);
-    const timestampVacuna = admin.firestore.Timestamp.fromDate(combinedDateTimeVacuna);
-
-    // Combinar fecha y hora en un solo objeto Date para la medicación
-    const combinedDateTimeMedicacion = new Date(`${fechaMedicacion}T${horaMedicacion}`);
-    const timestampMedicacion = admin.firestore.Timestamp.fromDate(combinedDateTimeMedicacion);
-
-    // Actualizar predefinedData con los valores proporcionados
-    const dataToInsert = {
-        ...predefinedData,
-        FechaVacuna: timestampVacuna,
-        TimestampMedicacion: timestampMedicacion,
+    const vacunaData = {
+        NombreVacuna: nombreVacuna,
+        NotasVacunacion: notasVacunacion || '',
+        TimestampVacunacion: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+        Vacunacion: true,
     };
 
-    // Añadir los datos a la colección 'Eventos'
-    const docRef = await db.collection('Eventos').add(dataToInsert);
-    res.send({ id: docRef.id, ...dataToInsert });
+    await db.collection('Eventos').doc(diaDeEvento).set({
+        Vacunas: admin.firestore.FieldValue.arrayUnion(vacunaData),
+        TimestampVacunacion: vacunaData.TimestampVacunacion,
+        Vacunacion: true,
+    }, { merge: true });
+
+    res.send({ success: true, vacunaData });
+});
+
+// Endpoint para cargar medicación en un día específico
+app.post('/medicacion', async (req, res) => {
+    const { diaDeEvento, nombreMedicamento, cantidadMedicamento, notasMedicamento } = req.body;
+
+    if (!diaDeEvento || !nombreMedicamento || !cantidadMedicamento) {
+        return res.status(400).send({ error: 'Todos los campos son requeridos' });
+    }
+
+    const medicacionData = {
+        NombreMedicamento: nombreMedicamento,
+        CantidadMedicamento: cantidadMedicamento,
+        NotasMedicamento: notasMedicamento || '',
+        TimestampMedicacion: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+        Medicacion: true,
+    };
+
+    await db.collection('Eventos').doc(diaDeEvento).set({
+        Medicaciones: admin.firestore.FieldValue.arrayUnion(medicacionData),
+        TimestampMedicacion: medicacionData.TimestampMedicacion,
+        Medicacion: true,
+    }, { merge: true });
+
+    res.send({ success: true, medicacionData });
+});
+
+// Endpoint para cargar hábitos en un día específico
+app.post('/habitos', async (req, res) => {
+    const { diaDeEvento, actividadFisica, alimentacionSaludable, consumoDeAlcohol, consumoDeTabaco, minSueño } = req.body;
+
+    if (!diaDeEvento) {
+        return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
+    }
+
+    const habitosSaludables = {
+        ActividadFisica: actividadFisica || false,
+        AlimentacionSaludable: alimentacionSaludable || false,
+        MinSueño: minSueño || false,
+        TimestampHabitosSaludables: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+    };
+
+    const habitosNoSaludables = {
+        ConsumoDeAlcohol: consumoDeAlcohol || false,
+        ConsumoDeTabaco: consumoDeTabaco || false,
+        TimestampHabitosNoSaludables: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+    };
+
+    await db.collection('Eventos').doc(diaDeEvento).set({
+        ...habitosSaludables,
+        ...habitosNoSaludables
+    }, { merge: true });
+
+    res.send({ success: true, habitosSaludables, habitosNoSaludables });
 });
 
 app.get('/', (req, res) => {
-    // Envía el archivo index.html como respuesta
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Exporta la constante app para que ezpress pueda ser utilizado en otros archivos
 module.exports = app;
