@@ -1,5 +1,5 @@
 // Declaración de la constante app, la cual se importa desde el archivo spp.js
-const app = require('../app') 
+const app = require('../MediCheck2024/app') 
 
 // Importación y ejecución del archivo firebase.js para comprobar su correcta inicialización 
 require('./firebase')
