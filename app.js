@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 app.get('/', function(req, res){
-    res.sendFile(__dirname + '/privacy.html');
+    res.sendFile(__dirname + '/index.html');
     });
 
 app.get('/eventos', async (req, res) => {
