@@ -8,9 +8,9 @@ const app = express();
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/', function (req, res) {
-    res.sendFile(__dirname + '/index.html');
-});
+// app.get('/', function (req, res) {
+//     res.sendFile(__dirname + '/index.html');
+// });
 
 app.get('/eventos', async (req, res) => {
     const querySnapshot = await db.collection('Eventos').get();
