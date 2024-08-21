@@ -8,9 +8,9 @@ const app = express();
 app.use(express.json());
 app.use(morgan('dev'));
 
-app.get('/', function(req, res){
+app.get('/', function (req, res) {
     res.sendFile(__dirname + '/index.html');
-    });
+});
 
 app.get('/eventos', async (req, res) => {
     const querySnapshot = await db.collection('Eventos').get();
@@ -96,7 +96,8 @@ app.post('/habitos', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.send("Hola")
+    // res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 module.exports = app;
