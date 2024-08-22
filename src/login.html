@@ -12,23 +12,95 @@
             <input type="password" id="registerPassword" placeholder="Contraseña" required>
             <button type="submit">Registrarse</button>
         </form>
+
         <h2>Inicio de sesión</h2>
         <form id="loginForm">
-            <input type="text" id="loginUsername" placeholder="Nombre de usuario" required>
+            <input type="text" id="loginUsername" placeholder="Nombre de usuario o correo electrónico" required>
             <input type="password" id="loginPassword" placeholder="Contraseña" required>
             <button type="submit">Iniciar sesión</button>
         </form>
+
         <button id="googleLogin">Iniciar sesión con Google</button>
     </div>
+
     <div id="calendarContainer" style="display:none;">
         <h2>Calendario</h2>
         <!-- Aquí va el código de tu calendario -->
     </div>
 
-
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js"></script>
-    <script src="./src/firebase-config.js"></script>
-    <script src="./src/auth.js"></script>
+    <script src="./firebase-config.js"></script>
+    <script src="./auth.js"></script>
+
+    <script>
+        const auth = firebase.auth();
+
+        // Registro de usuario
+        document.getElementById('registerForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const nombreUsuario = document.getElementById('registerUsername').value;
+            const correoElectronico = document.getElementById('registerEmail').value;
+            const contraseña = document.getElementById('registerPassword').value;
+
+            try {
+                // Registro en Firebase Authentication
+                const userCredential = await auth.createUserWithEmailAndPassword(correoElectronico, contraseña);
+                const user = userCredential.user;
+
+                // Guardar en Firestore
+                await fetch('/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombreUsuario, correoElectronico, contraseña })
+                });
+
+                alert('Usuario registrado exitosamente');
+            } catch (error) {
+                alert('Error en el registro: ' + error.message);
+            }
+        });
+
+        // Inicio de sesión con correo y contraseña
+        document.getElementById('loginForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const correoElectronico = document.getElementById('loginUsername').value;
+            const contraseña = document.getElementById('loginPassword').value;
+
+            try {
+                await auth.signInWithEmailAndPassword(correoElectronico, contraseña);
+                alert('Inicio de sesión exitoso');
+                // Mostrar calendario
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('calendarContainer').style.display = 'block';
+            } catch (error) {
+                alert('Error en el inicio de sesión: ' + error.message);
+            }
+        });
+
+        // Inicio de sesión con Google
+        document.getElementById('googleLogin').addEventListener('click', async () => {
+            const provider = new firebase.auth.GoogleAuthProvider();
+
+            try {
+                const result = await auth.signInWithPopup(provider);
+                const tokenId = await result.user.getIdToken();
+
+                // Enviar token al backend para manejar la lógica de login/registro
+                await fetch('/login-google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tokenId })
+                });
+
+                alert('Inicio de sesión con Google exitoso');
+                // Mostrar calendario
+                document.getElementById('authContainer').style.display = 'none';
+                document.getElementById('calendarContainer').style.display = 'block';
+            } catch (error) {
+                alert('Error en el inicio de sesión con Google: ' + error.message);
+            }
+        });
+    </script>
 </body>
 </html>

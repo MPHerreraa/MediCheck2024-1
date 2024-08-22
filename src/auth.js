@@ -1,114 +1,97 @@
-// src/auth.js
-import { auth, googleProvider } from "./firebase-config";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+/import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js';
+import { firebaseConfig } from './firebase-config.js';
 
-const db = getFirestore(); // Inicializa Firestore
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-const authContainer = document.getElementById('authContainer');
-const calendarContainer = document.getElementById('calendarContainer');
-
-const registerForm = document.getElementById('registerForm');
-const loginForm = document.getElementById('loginForm');
-const googleLoginButton = document.getElementById('googleLogin');
-
-// Registro de usuario
-registerForm.addEventListener('submit', (e) => {
+// Función para el registro de usuario
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
     const username = document.getElementById('registerUsername').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
 
-    auth.createUserWithEmailAndPassword(email, password)
-        .then(async (userCredential) => {
-            const user = userCredential.user;
-            await user.updateProfile({
-                displayName: username
-            });
+    try {
+        // Crear usuario con email y contraseña
+        await createUserWithEmailAndPassword(auth, email, password);
 
-            // Guarda la información adicional en Firestore
-            await setDoc(doc(db, "users", user.uid), {
-                NombreUsuario: username,
-                CorreoElectronico: email,
-                Contraseña: password
-            });
-
-            console.log('Registro exitoso', user);
-            checkAuthState();
-        })
-        .catch((error) => {
-            console.error('Error en el registro', error);
+        // Enviar datos del usuario al servidor
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                nombreUsuario: username,
+                correoElectronico: email,
+                contraseña: password
+            })
         });
+
+        const result = await response.json();
+
+        if (result.success) {
+            alert('Registro exitoso');
+            // Redirigir o mostrar el calendario
+        } else {
+            alert('Error al registrar: ' + result.message);
+        }
+    } catch (error) {
+        console.error('Error en el registro:', error);
+    }
 });
 
-// Inicio de sesión de usuario
-loginForm.addEventListener('submit', (e) => {
+// Función para el inicio de sesión
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = document.getElementById('loginUsername').value;
+
+    const email = document.getElementById('loginUsername').value;
     const password = document.getElementById('loginPassword').value;
 
-    // Busca el usuario en Firestore por nombre de usuario
-    const usersRef = db.collection('users');
-    usersRef.where('NombreUsuario', '==', username).get()
-        .then((querySnapshot) => {
-            if (querySnapshot.empty) {
-                console.error('Nombre de usuario no encontrado');
-                return;
-            }
-            const userDoc = querySnapshot.docs[0];
-            const userData = userDoc.data();
+    try {
+        // Iniciar sesión con email y contraseña
+        await signInWithEmailAndPassword(auth, email, password);
 
-            // Inicia sesión con el correo electrónico asociado
-            auth.signInWithEmailAndPassword(userData.CorreoElectronico, password)
-                .then((userCredential) => {
-                    const user = userCredential.user;
-                    console.log('Inicio de sesión exitoso', user);
-                    checkAuthState();
-                })
-                .catch((error) => {
-                    console.error('Error en el inicio de sesión', error);
-                });
-        })
-        .catch((error) => {
-            console.error('Error al buscar el usuario', error);
-        });
+        // Redirigir o mostrar el calendario
+        document.getElementById('authContainer').style.display = 'none';
+        document.getElementById('calendarContainer').style.display = 'block';
+    } catch (error) {
+        console.error('Error en el inicio de sesión:', error);
+    }
 });
 
-// Inicio de sesión con Google
-googleLoginButton.addEventListener('click', () => {
-    auth.signInWithPopup(googleProvider)
-        .then(async (result) => {
-            const user = result.user;
-            console.log('Inicio de sesión con Google exitoso', user);
+// Función para el inicio de sesión con Google
+document.getElementById('googleLogin').addEventListener('click', async () => {
+    const provider = new GoogleAuthProvider();
 
-            // Guarda la información adicional en Firestore si es un nuevo usuario
-            const userDoc = await db.collection('users').doc(user.uid).get();
-            if (!userDoc.exists) {
-                await setDoc(doc(db, "users", user.uid), {
-                    NombreUsuario: user.displayName,
-                    CorreoElectronico: user.email
-                });
-            }
+    try {
+        const result = await signInWithPopup(auth, provider);
+        const token = await result.user.getIdToken();
 
-            checkAuthState();
-        })
-        .catch((error) => {
-            console.error('Error en el inicio de sesión con Google', error);
+        // Enviar token al servidor para verificación
+        const response = await fetch('/login-google', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                tokenId: token
+            })
         });
-});
 
-// Verifica el estado de autenticación del usuario
-function checkAuthState() {
-    auth.onAuthStateChanged((user) => {
-        if (user) {
-            console.log('Usuario autenticado', user);
-            authContainer.style.display = 'none';
-            calendarContainer.style.display = 'block';
+        const resultServer = await response.json();
+
+        if (resultServer.success) {
+            // Redirigir o mostrar el calendario
+            document.getElementById('authContainer').style.display = 'none';
+            document.getElementById('calendarContainer').style.display = 'block';
         } else {
-            console.log('Usuario no autenticado');
-            authContainer.style.display = 'block';
-            calendarContainer.style.display = 'none';
+            alert('Error al iniciar sesión con Google: ' + resultServer.message);
         }
-    });
-}
-
-checkAuthState();
+    } catch (error) {
+        console.error('Error en el inicio de sesión con Google:', error);
+    }
+});
