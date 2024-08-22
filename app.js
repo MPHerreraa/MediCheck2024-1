@@ -38,7 +38,7 @@ app.post('/register', async (req, res) => {
         await db.collection('usuarios').add({
             NombreUsuario: nombreUsuario,
             CorreoElectronico: correoElectronico,
-            Contraseña: contraseña // Nota: En una aplicación real, no debes almacenar contraseñas en texto plano
+            Contraseña: contraseña 
         });
         res.status(200).send({ success: true });
     } catch (error) {
