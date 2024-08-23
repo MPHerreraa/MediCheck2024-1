@@ -2,7 +2,8 @@ const express = require('express');
 const morgan = require('morgan');
 const path = require('path');
 const cors = require('cors');
-const { db, admin } = require('./src/firebase');
+const { db } = require('./src/firebase');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 
 
 const app = express();
@@ -64,10 +65,10 @@ app.post('/register', async (req, res) => {
 
 // Endpoint para el inicio de sesión normal (usuario y contraseña)
 app.post('/login', async (req, res) => {
-    const { correoElectronico, contraseña } = req.body;
+    const { nombreUsuario, contraseña } = req.body;
 
 
-    if (!correoElectronico || !contraseña) {
+    if (!nombreUsuario || !contraseña) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
 
@@ -75,13 +76,13 @@ app.post('/login', async (req, res) => {
     try {
         // Verificar si el usuario existe
         const userQuery = await db.collection('Usuarios')
-            .where('CorreoElectronico', '==', correoElectronico)
+            .where('NombreUsuario', '==', nombreUsuario)
             .where('Contraseña', '==', contraseña)
             .get();
 
 
         if (userQuery.empty) {
-            return res.status(401).send({ error: 'Correo electrónico o contraseña incorrectos' });
+            return res.status(401).send({ error: 'Nombre de usuario o contraseña incorrectos' });
         }
 
 
@@ -147,14 +148,14 @@ app.post('/vacuna', async (req, res) => {
     const vacunaData = {
         NombreVacuna: nombreVacuna,
         NotasVacunacion: notasVacunacion || '',
-        TimestampVacunacion: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+        TimestampVacunacion: Timestamp.fromDate(new Date(diaDeEvento)),
         Vacunacion: true,
     };
 
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'vacunacion_medicacion.vacunacion': admin.firestore.FieldValue.arrayUnion(vacunaData)
+            'vacunacion_medicacion.vacunacion': FieldValue.arrayUnion(vacunaData)
         }, { merge: true });
 
 
@@ -179,14 +180,14 @@ app.post('/medicacion', async (req, res) => {
         NombreMedicamento: nombreMedicamento,
         CantidadMedicamento: cantidadMedicamento,
         NotasMedicamento: notasMedicamento || '',
-        TimestampMedicacion: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+        TimestampMedicacion: Timestamp.fromDate(new Date(diaDeEvento)),
         Medicacion: true,
     };
 
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'vacunacion_medicacion.medicacion': admin.firestore.FieldValue.arrayUnion(medicacionData)
+            'vacunacion_medicacion.medicacion': FieldValue.arrayUnion(medicacionData)
         }, { merge: true });
 
 
@@ -198,8 +199,34 @@ app.post('/medicacion', async (req, res) => {
 
 
 // Endpoint para cargar hábitos en un día específico
-app.post('/habitos', async (req, res) => {
-    const { diaDeEvento, actividadFisica, alimentacionSaludable, consumoDeAlcohol, consumoDeTabaco, minSueño } = req.body;
+app.post('/habitos-no-saludables', async (req, res) => {
+    const {diaDeEvento, consumoDeAlcohol, consumoDeTabaco} = req.body;
+
+
+    if (!diaDeEvento) {
+        return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
+    }
+
+    const habitosNoSaludables = {
+        ConsumoDeAlcohol: consumoDeAlcohol || false,
+        ConsumoDeTabaco: consumoDeTabaco || false,
+        TimestampHabitosNoSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
+    };
+
+
+    try {
+        await db.collection('Eventos').doc(diaDeEvento).set({
+            'habitos_nosaludables_saludables.no_saludables': FieldValue.arrayUnion(habitosNoSaludables)
+        }, { merge: true });
+
+
+        res.send({ success: true, habitosNoSaludables });
+    } catch (error) {
+        res.status(500).send({ error: 'Error al registrar los hábitos' });
+    }
+});
+app.post('/habitos-saludables', async (req, res) => {
+    const { diaDeEvento, actividadFisica, alimentacionSaludable, minSueño } = req.body;
 
 
     if (!diaDeEvento) {
@@ -211,25 +238,16 @@ app.post('/habitos', async (req, res) => {
         ActividadFisica: actividadFisica || false,
         AlimentacionSaludable: alimentacionSaludable || false,
         MinSueño: minSueño || false,
-        TimestampHabitosSaludables: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
+        TimestampHabitosSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
-
-
-    const habitosNoSaludables = {
-        ConsumoDeAlcohol: consumoDeAlcohol || false,
-        ConsumoDeTabaco: consumoDeTabaco || false,
-        TimestampHabitosNoSaludables: admin.firestore.Timestamp.fromDate(new Date(diaDeEvento)),
-    };
-
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'habitos_nosaludables_saludables.saludables': admin.firestore.FieldValue.arrayUnion(habitosSaludables),
-            'habitos_nosaludables_saludables.no_saludables': admin.firestore.FieldValue.arrayUnion(habitosNoSaludables)
+            'habitos_nosaludables_saludables.saludables': FieldValue.arrayUnion(habitosSaludables),
         }, { merge: true });
 
 
-        res.send({ success: true, habitosSaludables, habitosNoSaludables });
+        res.send({ success: true, habitosSaludables});
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos' });
     }
