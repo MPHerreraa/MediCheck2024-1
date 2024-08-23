@@ -1,9 +1,14 @@
 const express = require('express');
 const morgan = require('morgan');
 const path = require('path');
+const cors = require('cors');
 const { db, admin } = require('./src/firebase');
 
 const app = express();
+
+app.use(cors({
+    origin: [/^http:\/\/localhost:\d+$/] // Regular expression to match any localhost port
+  }));
 
 app.use(express.json());
 app.use(morgan('dev'));
@@ -26,7 +31,7 @@ app.post('/register', async (req, res) => {
 
     try {
         // Verificar si el usuario ya existe
-        const userQuery = await db.collection('usuarios')
+        const userQuery = await db.collection('Usuarios')
             .where('CorreoElectronico', '==', correoElectronico)
             .get();
 
@@ -35,7 +40,7 @@ app.post('/register', async (req, res) => {
         }
 
         // Agregar el nuevo usuario a Firestore
-        await db.collection('usuarios').add({
+        await db.collection('Usuarios').add({
             NombreUsuario: nombreUsuario,
             CorreoElectronico: correoElectronico,
             Contraseña: contraseña 
@@ -55,7 +60,7 @@ app.post('/login-google', async (req, res) => {
         const uid = decodedToken.uid;
 
         // Verificar si el usuario ya existe
-        const userRef = db.collection('usuarios').doc(uid);
+        const userRef = db.collection('Usuarios').doc(uid);
         const userDoc = await userRef.get();
 
         if (!userDoc.exists) {
