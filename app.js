@@ -216,7 +216,7 @@ app.post('/habitos-no-saludables', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'habitos_nosaludables_saludables.no_saludables': FieldValue.arrayUnion(habitosNoSaludables)
+            'habitos_nosaludables_saludables.no_saludables': habitosNoSaludables
         }, { merge: true });
 
 
@@ -243,7 +243,7 @@ app.post('/habitos-saludables', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'habitos_nosaludables_saludables.saludables': FieldValue.arrayUnion(habitosSaludables),
+            'habitos_nosaludables_saludables.saludables': habitosSaludables,
         }, { merge: true });
 
 
