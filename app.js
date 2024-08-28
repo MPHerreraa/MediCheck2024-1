@@ -3,15 +3,17 @@ const morgan = require('morgan');
 const path = require('path');
 const cors = require('cors');
 const { db } = require('./src/firebase');
+const admin = require('firebase-admin');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 
-
 const app = express();
+const corsOptions = {
+    origin: '*', // Allow all origins
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: 'Content-Type, Authorization'
+};
 
-
-app.use(cors({
-    origin: [/^http:\/\/localhost:\d+$/] // Regular expression to match any localhost port
-}));
+app.use(cors(corsOptions));
 
 
 app.use(express.json());
@@ -97,31 +99,31 @@ app.post('/login', async (req, res) => {
 app.post('/login-google', async (req, res) => {
     const { tokenId } = req.body;
 
-
     try {
+        // Verify the Google ID token
         const decodedToken = await admin.auth().verifyIdToken(tokenId);
         const uid = decodedToken.uid;
 
-
-        // Verificar si el usuario ya existe
+        // Check if the user already exists in Firestore
         const userRef = db.collection('Usuarios').doc(uid);
         const userDoc = await userRef.get();
 
-
         if (!userDoc.exists) {
-            // Si no existe, agregar el nuevo usuario a Firestore
+            // If user does not exist, create a new user in Firestore
             await userRef.set({
                 NombreUsuario: decodedToken.name,
                 CorreoElectronico: decodedToken.email
             });
         }
 
-
+        // Send success response
         res.status(200).send({ success: true });
     } catch (error) {
+        // Send error response
         res.status(500).send({ success: false, message: error.message });
     }
 });
+
 
 
 // Endpoint para obtener los eventos
@@ -155,7 +157,7 @@ app.post('/vacuna', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'vacunacion_medicacion.vacunacion': FieldValue.arrayUnion(vacunaData)
+            'vacunacion': FieldValue.arrayUnion(vacunaData)
         }, { merge: true });
 
 
@@ -187,7 +189,7 @@ app.post('/medicacion', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'vacunacion_medicacion.medicacion': FieldValue.arrayUnion(medicacionData)
+            'medicacion': FieldValue.arrayUnion(medicacionData)
         }, { merge: true });
 
 
@@ -216,7 +218,7 @@ app.post('/habitos-no-saludables', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'habitos_nosaludables_saludables.no_saludables': habitosNoSaludables
+            'habitos_no_saludables': habitosNoSaludables
         }, { merge: true });
 
 
@@ -227,7 +229,7 @@ app.post('/habitos-no-saludables', async (req, res) => {
 });
 app.post('/habitos-saludables', async (req, res) => {
     const { diaDeEvento, actividadFisica, alimentacionSaludable, minSueño } = req.body;
-
+    
 
     if (!diaDeEvento) {
         return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
@@ -243,7 +245,7 @@ app.post('/habitos-saludables', async (req, res) => {
 
     try {
         await db.collection('Eventos').doc(diaDeEvento).set({
-            'habitos_nosaludables_saludables.saludables': habitosSaludables,
+            'habitos_saludables': habitosSaludables,
         }, { merge: true });
 
 
@@ -253,7 +255,67 @@ app.post('/habitos-saludables', async (req, res) => {
     }
 });
 
+app.delete('/evento', async (req, res) => {
+    const { diaDeEvento, tipoEvento, nombreMedicamento, nombreVacuna } = req.body;
 
+    if (!diaDeEvento || !tipoEvento) {
+        return res.status(400).send({ error: 'Los campos diaDeEvento y tipoEvento son requeridos' });
+    }
+
+    try {
+        const docRef = db.collection('Eventos').doc(diaDeEvento);
+        const docSnapshot = await docRef.get();
+
+        if (!docSnapshot.exists) {
+            return res.status(404).send({ error: 'El documento no existe' });
+        }
+
+        let updateData = {};
+        let arrayToUpdate = [];
+
+        switch (tipoEvento) {
+            case 'medicacion':
+                if (!nombreMedicamento) {
+                    return res.status(400).send({ error: 'El campo nombreMedicamento es requerido para eliminar medicación' });
+                }
+                arrayToUpdate = docSnapshot.data().medicacion || [];
+                updateData['medicacion'] = arrayToUpdate.filter(
+                    (item) => item.NombreMedicamento !== nombreMedicamento
+                );
+                break;
+
+            case 'vacunacion':
+                if (!nombreVacuna) {
+                    return res.status(400).send({ error: 'El campo nombreVacuna es requerido para eliminar vacunación' });
+                }
+                arrayToUpdate = docSnapshot.data().vacunacion || [];
+                updateData['vacunacion'] = arrayToUpdate.filter(
+                    (item) => item.NombreVacuna !== nombreVacuna
+                );
+                break;
+
+            case 'saludables':
+                updateData = {
+                    'habitos_saludables': {}
+                };
+                break;
+
+            case 'no_saludables':
+                updateData = {
+                    'habitos_no_saludables': {}
+                };
+                break;
+
+            default:
+                return res.status(400).send({ error: 'Tipo de evento no reconocido' });
+        }
+
+        await docRef.update(updateData);
+        res.send({ success: true, message: `El evento ${tipoEvento} ha sido eliminado correctamente` });
+    } catch (error) {
+        res.status(500).send({ error: 'Error al eliminar el evento', details: error.message });
+    }
+});
 module.exports = app;
 
 
