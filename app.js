@@ -189,25 +189,27 @@ app.post('/medicacion', verifyToken, async (req, res) => {
 
 // Endpoint para cargar hábitos no saludables en un día específico
 app.post('/habitos-no-saludables', /*verifyToken,*/ async (req, res) => {
-    const { diaDeEvento, consumoDeAlcohol, consumoDeTabaco } = req.body;
-    // diaDeEvento = '25 de septiembre de 2024'
-    if (!diaDeEvento) {
-        return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
-    }
+    const { consumoDeAlcohol, consumoDeTabaco } = req.body;
+    // if (!diaDeEvento) {
+        //     return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
+        // }
+
+    diaDeEvento = Timestamp.fromDate(new Date())
 
     const habitosNoSaludables = {
         ConsumoDeAlcohol: consumoDeAlcohol || false,
         ConsumoDeTabaco: consumoDeTabaco || false,
-        TimestampHabitosNoSaludables: Timestamp.fromDate(new Date()),
+        TimestampHabitosNoSaludables: diaDeEvento,
     };
 
     try {
-        await db.collection('Usuarios').doc(hardcodedUid).collection('Eventos').doc(diaDeEvento).set({
+        await db.collection('Usuarios').doc(hardcodedUid).collection('Eventos').doc(diaDeEvento.toString()).set({
             'habitos_no_saludables': habitosNoSaludables
         }, { merge: true });
 
         res.send({ success: true, habitosNoSaludables });
     } catch (error) {
+        console.log(error);
         res.status(500).send({ error: 'Error al registrar los hábitos no saludables' });
     }
 });
