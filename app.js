@@ -198,7 +198,7 @@ app.post('/habitos-no-saludables', /*verifyToken,*/ async (req, res) => {
     const habitosNoSaludables = {
         ConsumoDeAlcohol: consumoDeAlcohol || false,
         ConsumoDeTabaco: consumoDeTabaco || false,
-        TimestampHabitosNoSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
+        TimestampHabitosNoSaludables: Timestamp.fromDate(new Date()),
     };
 
     try {
