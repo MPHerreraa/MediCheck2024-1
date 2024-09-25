@@ -190,7 +190,7 @@ app.post('/medicacion', verifyToken, async (req, res) => {
 // Endpoint para cargar hábitos no saludables en un día específico
 app.post('/habitos-no-saludables', /*verifyToken,*/ async (req, res) => {
     const { diaDeEvento, consumoDeAlcohol, consumoDeTabaco } = req.body;
-    diaDeEvento = '25 de septiembre de 2024'
+    // diaDeEvento = '25 de septiembre de 2024'
     if (!diaDeEvento) {
         return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
     }
