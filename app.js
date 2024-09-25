@@ -188,7 +188,7 @@ app.post('/medicacion', verifyToken, async (req, res) => {
 });
 
 // Endpoint para cargar hábitos no saludables en un día específico
-app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
+app.post('/habitos-no-saludables', /*verifyToken,*/ async (req, res) => {
     const { diaDeEvento, consumoDeAlcohol, consumoDeTabaco } = req.body;
 
     if (!diaDeEvento) {
