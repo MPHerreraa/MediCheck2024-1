@@ -20,6 +20,8 @@ app.use(morgan('dev'));
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'src')));
 
+const hardcodedUid = 'KmSaV8g33j5rjyes281A';
+
 // Middleware para verificar el token de Firebase y obtener el UID del usuario
 async function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(' ')[1];
@@ -200,7 +202,7 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
     };
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+        await db.collection('Usuarios').doc(hardcodedUid).collection('Eventos').doc(diaDeEvento).set({
             'habitos_no_saludables': habitosNoSaludables
         }, { merge: true });
 
