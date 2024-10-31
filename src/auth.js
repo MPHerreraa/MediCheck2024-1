@@ -1,12 +1,13 @@
-// src/auth.js
 import { auth, provider } from './firebase-config';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup } from "firebase/auth";
+import { USER_ROLES } from './UserRoles';
 
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('registerUsername').value;
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
+    const role = document.getElementById('userRole').value;
 
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -18,7 +19,8 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
             body: JSON.stringify({
                 nombreUsuario: username,
                 correoElectronico: email,
-                contraseña: password
+                contraseña: password,
+                rol: role
             })
         });
 
@@ -34,9 +36,22 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     const password = document.getElementById('loginPassword').value;
 
     try {
-        await signInWithEmailAndPassword(auth, email, password);
-        alert('Inicio de sesión exitoso');
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const idToken = await userCredential.user.getIdToken();
+        
+        const response = await fetch('/user-role', {
+            headers: {
+                'Authorization': `Bearer ${idToken}`
+            }
+        });
+        const userData = await response.json();
+        
+        if (userData.role === USER_ROLES.DOCTOR) {
+            document.getElementById('patientListContainer').style.display = 'block';
+        }
+        
         document.getElementById('calendarContainer').style.display = 'block';
+        alert('Inicio de sesión exitoso');
     } catch (error) {
         alert('Error en el inicio de sesión: ' + error.message);
     }

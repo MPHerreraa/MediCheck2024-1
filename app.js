@@ -8,7 +8,7 @@ const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 
 const app = express();
 const corsOptions = {
-    origin: '*', // Allow all origins
+    origin: '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     allowedHeaders: 'Content-Type, Authorization'
 };
@@ -16,13 +16,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan('dev'));
-
-// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'src')));
 
-const hardcodedUid = 'KmSaV8g33j5rjyes281A';
-
-// Middleware para verificar el token de Firebase y obtener el UID del usuario
 async function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -38,21 +33,38 @@ async function verifyToken(req, res, next) {
     }
 }
 
-// Endpoint para la página principal
+async function checkDoctorRole(req, res, next) {
+    try {
+        const userDoc = await db.collection('Usuarios').doc(req.uid).get();
+        if (!userDoc.exists) {
+            return res.status(404).send({ error: 'Usuario no encontrado' });
+        }
+
+        const userData = userDoc.data();
+        if (userData.rol !== 'doctor') {
+            return res.status(403).send({ error: 'Acceso no autorizado' });
+        }
+
+        next();
+    } catch (error) {
+        res.status(500).send({ error: 'Error al verificar rol de usuario' });
+    }
+}
+
+// Rutas básicas
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'src', 'login.html'));
 });
 
-// Endpoint para el registro de usuario
+// Autenticación y registro
 app.post('/register', async (req, res) => {
-    const { nombreUsuario, correoElectronico, contraseña } = req.body;
+    const { nombreUsuario, correoElectronico, contraseña, rol } = req.body;
 
-    if (!nombreUsuario || !correoElectronico || !contraseña) {
+    if (!nombreUsuario || !correoElectronico || !contraseña || !rol) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
 
     try {
-        // Verificar si el usuario ya existe
         const userQuery = await db.collection('Usuarios')
             .where('CorreoElectronico', '==', correoElectronico)
             .get();
@@ -61,11 +73,11 @@ app.post('/register', async (req, res) => {
             return res.status(400).send({ error: 'El correo electrónico ya está registrado' });
         }
 
-        // Agregar el nuevo usuario a Firestore
         await db.collection('Usuarios').add({
             NombreUsuario: nombreUsuario,
             CorreoElectronico: correoElectronico,
-            Contraseña: contraseña
+            Contraseña: contraseña,
+            rol: rol
         });
         res.status(200).send({ success: true });
     } catch (error) {
@@ -73,7 +85,6 @@ app.post('/register', async (req, res) => {
     }
 });
 
-// Endpoint para el inicio de sesión normal (usuario y contraseña)
 app.post('/login', async (req, res) => {
     const { nombreUsuario, contraseña } = req.body;
 
@@ -82,7 +93,6 @@ app.post('/login', async (req, res) => {
     }
 
     try {
-        // Verificar si el usuario existe
         const userQuery = await db.collection('Usuarios')
             .where('NombreUsuario', '==', nombreUsuario)
             .where('Contraseña', '==', contraseña)
@@ -98,7 +108,6 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Endpoint para el inicio de sesión con Google
 app.post('/login-google', async (req, res) => {
     const { tokenId } = req.body;
 
@@ -106,14 +115,14 @@ app.post('/login-google', async (req, res) => {
         const decodedToken = await admin.auth().verifyIdToken(tokenId);
         const uid = decodedToken.uid;
 
-        // Check if the user already exists in Firestore
         const userRef = db.collection('Usuarios').doc(uid);
         const userDoc = await userRef.get();
 
         if (!userDoc.exists) {
             await userRef.set({
                 NombreUsuario: decodedToken.name,
-                CorreoElectronico: decodedToken.email
+                CorreoElectronico: decodedToken.email,
+                rol: 'patient' // Por defecto, los usuarios de Google son pacientes
             });
         }
 
@@ -123,7 +132,43 @@ app.post('/login-google', async (req, res) => {
     }
 });
 
-// Endpoint para obtener los eventos del usuario
+// Endpoints de roles y acceso
+app.get('/user-role', verifyToken, async (req, res) => {
+    try {
+        const userDoc = await db.collection('Usuarios').doc(req.uid).get();
+        if (!userDoc.exists) {
+            return res.status(404).send({ error: 'Usuario no encontrado' });
+        }
+
+
+        const userData = userDoc.data();
+        res.send({ role: userData.rol });
+    } catch (error) {
+        res.status(500).send({ error: 'Error al obtener rol de usuario' });
+    }
+});
+
+app.get('/patients', verifyToken, checkDoctorRole, async (req, res) => {
+    try {
+        const patientsSnapshot = await db.collection('Usuarios')
+            .where('rol', '==', 'patient')
+            .get();
+
+
+        const patients = patientsSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            Contraseña: undefined
+        }));
+
+
+        res.send(patients);
+    } catch (error) {
+        res.status(500).send({ error: 'Error al obtener lista de pacientes' });
+    }
+});
+
+// Endpoints de eventos
 app.get('/eventos', verifyToken, async (req, res) => {
     try {
         const eventosSnapshot = await db.collection('Usuarios').doc(req.uid).collection('Eventos').get();
@@ -134,7 +179,27 @@ app.get('/eventos', verifyToken, async (req, res) => {
     }
 });
 
-// Endpoint para cargar una vacuna en un día específico
+app.get('/patient/:patientId/eventos', verifyToken, checkDoctorRole, async (req, res) => {
+    try {
+        const eventosSnapshot = await db.collection('Usuarios')
+            .doc(req.params.patientId)
+            .collection('Eventos')
+            .get();
+
+
+        const eventos = eventosSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+
+
+        res.send(eventos);
+    } catch (error) {
+        res.status(500).send({ error: 'Error al obtener eventos del paciente' });
+    }
+});
+
+// Endpoints de vacunas
 app.post('/vacuna', verifyToken, async (req, res) => {
     const { diaDeEvento, nombreVacuna, notasVacunacion } = req.body;
 
@@ -160,7 +225,7 @@ app.post('/vacuna', verifyToken, async (req, res) => {
     }
 });
 
-// Endpoint para cargar medicación en un día específico
+// Endpoints de medicación
 app.post('/medicacion', verifyToken, async (req, res) => {
     const { diaDeEvento, nombreMedicamento, cantidadMedicamento, notasMedicamento } = req.body;
 
@@ -187,34 +252,31 @@ app.post('/medicacion', verifyToken, async (req, res) => {
     }
 });
 
-// Endpoint para cargar hábitos no saludables en un día específico
-app.post('/habitos-no-saludables', /*verifyToken,*/ async (req, res) => {
-    const { consumoDeAlcohol, consumoDeTabaco } = req.body;
-    // if (!diaDeEvento) {
-        //     return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
-        // }
+// Endpoints de hábitos
+app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
+    const { diaDeEvento, consumoDeAlcohol, consumoDeTabaco } = req.body;
 
-    diaDeEvento = Timestamp.fromDate(new Date())
+    if (!diaDeEvento) {
+        return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
+    }
 
     const habitosNoSaludables = {
         ConsumoDeAlcohol: consumoDeAlcohol || false,
         ConsumoDeTabaco: consumoDeTabaco || false,
-        TimestampHabitosNoSaludables: diaDeEvento,
+        TimestampHabitosNoSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
 
     try {
-        await db.collection('Usuarios').doc(hardcodedUid).collection('Eventos').doc(diaDeEvento.toString()).set({
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
             'habitos_no_saludables': habitosNoSaludables
         }, { merge: true });
 
         res.send({ success: true, habitosNoSaludables });
     } catch (error) {
-        console.log(error);
         res.status(500).send({ error: 'Error al registrar los hábitos no saludables' });
     }
 });
 
-// Endpoint para cargar hábitos saludables en un día específico
 app.post('/habitos-saludables', verifyToken, async (req, res) => {
     const { diaDeEvento, actividadFisica, alimentacionSaludable, minSueño } = req.body;
 
@@ -240,7 +302,7 @@ app.post('/habitos-saludables', verifyToken, async (req, res) => {
     }
 });
 
-// Endpoint para eliminar eventos (vacunas, medicación, hábitos)
+// Endpoint para eliminar eventos
 app.delete('/evento', verifyToken, async (req, res) => {
     const { diaDeEvento, tipoEvento, nombreMedicamento, nombreVacuna } = req.body;
 
@@ -278,7 +340,6 @@ app.delete('/evento', verifyToken, async (req, res) => {
     }
 });
 
-// Iniciar servidor
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
