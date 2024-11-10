@@ -285,16 +285,28 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
         TimestampHabitosNoSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
 
-    try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
-            'habitos_no_saludables': habitosNoSaludables
-        }, { merge: true });
+    const allFalse = !habitosNoSaludables.ConsumoDeAlcohol && !habitosNoSaludables.ConsumoDeTabaco;
 
-        res.send({ success: true, habitosNoSaludables });
+    try {
+        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+
+        if (allFalse) {
+            await eventRef.update({
+                habitos_no_saludables: FieldValue.delete(),
+            });
+            res.send({ success: true, message: 'Hábitos no saludables eliminados porque todos son falsos' });
+        } else {
+            await eventRef.set(
+                { habitos_no_saludables: habitosNoSaludables },
+                { merge: true }
+            );
+            res.send({ success: true, habitosNoSaludables });
+        }
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos no saludables' });
     }
 });
+
 
 app.post('/habitos-saludables', verifyToken, async (req, res) => {
     const { diaDeEvento, actividadFisica, alimentacionSaludable, minSueño } = req.body;
@@ -312,16 +324,28 @@ app.post('/habitos-saludables', verifyToken, async (req, res) => {
         TimestampHabitosSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
 
-    try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
-            'habitos_saludables': habitosSaludables,
-        }, { merge: true });
+    const allFalse = !habitosSaludables.ActividadFisica && !habitosSaludables.AlimentacionSaludable && !habitosSaludables.MinSueño;
 
-        res.send({ success: true, habitosSaludables });
+    try {
+        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+
+        if (allFalse) {
+            await eventRef.update({
+                habitos_saludables: FieldValue.delete(),
+            });
+            res.send({ success: true, message: 'Habitos saludables eliminados porque todos son falsos' });
+        } else {
+            await eventRef.set(
+                { habitos_saludables: habitosSaludables },
+                { merge: true }
+            );
+            res.send({ success: true, habitosSaludables });
+        }
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos saludables' });
     }
 });
+
 
 // Endpoint para eliminar eventos
 app.delete('/evento', verifyToken, async (req, res) => {
