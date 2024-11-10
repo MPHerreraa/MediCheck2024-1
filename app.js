@@ -18,6 +18,16 @@ app.use(express.json());
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'src')));
 
+const formatDateToDocId = (isoDate) => {
+    const date = new Date(isoDate);
+    return new Intl.DateTimeFormat('es-ES', {
+        dateStyle: 'long',
+        timeStyle: 'medium',
+        hour12: true, 
+        timeZone: 'America/Argentina/Buenos_Aires', 
+    }).format(date) + " UTC-3"; 
+};
+
 async function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -29,6 +39,7 @@ async function verifyToken(req, res, next) {
         req.uid = decodedToken.uid;
         next();
     } catch (error) {
+        console.log(error)
         res.status(403).send({ error: 'Token inválido' });
     }
 }
@@ -57,7 +68,7 @@ app.get('/', (req, res) => {
 });
 
 // Autenticación y registro
-app.post('/register', async (req, res) => {
+app.post('/register', verifyToken, async (req, res) => {
     const { nombreUsuario, correoElectronico, contraseña, rol } = req.body;
 
     if (!nombreUsuario || !correoElectronico || !contraseña || !rol) {
@@ -73,33 +84,33 @@ app.post('/register', async (req, res) => {
             return res.status(400).send({ error: 'El correo electrónico ya está registrado' });
         }
 
-        await db.collection('Usuarios').add({
+        await db.collection('Usuarios').doc(req.uid).set({
             NombreUsuario: nombreUsuario,
             CorreoElectronico: correoElectronico,
             Contraseña: contraseña,
             rol: rol
-        });
+        }, { merge: true });
         res.status(200).send({ success: true });
     } catch (error) {
         res.status(500).send({ success: false, message: error.message });
     }
 });
 
-app.post('/login', async (req, res) => {
-    const { nombreUsuario, contraseña } = req.body;
+app.post('/login', verifyToken, async (req, res) => {
+    const { correoElectronico, contraseña } = req.body;
 
-    if (!nombreUsuario || !contraseña) {
+    if (!correoElectronico || !contraseña) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
 
     try {
         const userQuery = await db.collection('Usuarios')
-            .where('NombreUsuario', '==', nombreUsuario)
+            .where('CorreoElectronico', '==', correoElectronico)
             .where('Contraseña', '==', contraseña)
             .get();
 
         if (userQuery.empty) {
-            return res.status(401).send({ error: 'Nombre de usuario o contraseña incorrectos' });
+            return res.status(401).send({ error: 'Correo o contraseña incorrectos' });
         }
 
         res.status(200).send({ success: true });
@@ -207,20 +218,24 @@ app.post('/vacuna', verifyToken, async (req, res) => {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
 
+    const eventDate = new Date(diaDeEvento);
+    const formattedDate = `${eventDate.getFullYear()}_${(eventDate.getMonth() + 1).toString().padStart(2, '0')}_${eventDate.getDate().toString().padStart(2, '0')}`;
+
     const vacunaData = {
         NombreVacuna: nombreVacuna,
         NotasVacunacion: notasVacunacion || '',
-        TimestampVacunacion: Timestamp.fromDate(new Date(diaDeEvento)),
+        TimestampVacunacion: admin.firestore.Timestamp.fromDate(eventDate),
         Vacunacion: true,
     };
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
-            'vacunacion': FieldValue.arrayUnion(vacunaData)
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
+            'vacunacion': admin.firestore.FieldValue.arrayUnion(vacunaData)
         }, { merge: true });
 
         res.send({ success: true, vacunaData });
     } catch (error) {
+        console.error(error);
         res.status(500).send({ error: 'Error al registrar la vacuna' });
     }
 });
@@ -232,6 +247,8 @@ app.post('/medicacion', verifyToken, async (req, res) => {
     if (!diaDeEvento || !nombreMedicamento || !cantidadMedicamento) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
     }
+    const eventDate = new Date(diaDeEvento);
+    const formattedDate = `${eventDate.getFullYear()}_${(eventDate.getMonth() + 1).toString().padStart(2, '0')}_${eventDate.getDate().toString().padStart(2, '0')}`;
 
     const medicacionData = {
         NombreMedicamento: nombreMedicamento,
@@ -242,7 +259,7 @@ app.post('/medicacion', verifyToken, async (req, res) => {
     };
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
             'medicacion': FieldValue.arrayUnion(medicacionData)
         }, { merge: true });
 
@@ -255,6 +272,8 @@ app.post('/medicacion', verifyToken, async (req, res) => {
 // Endpoints de hábitos
 app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
     const { diaDeEvento, consumoDeAlcohol, consumoDeTabaco } = req.body;
+    const eventDate = new Date(diaDeEvento);
+    const formattedDate = `${eventDate.getFullYear()}_${(eventDate.getMonth() + 1).toString().padStart(2, '0')}_${eventDate.getDate().toString().padStart(2, '0')}`;
 
     if (!diaDeEvento) {
         return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
@@ -267,7 +286,7 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
     };
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
             'habitos_no_saludables': habitosNoSaludables
         }, { merge: true });
 
@@ -279,6 +298,8 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
 
 app.post('/habitos-saludables', verifyToken, async (req, res) => {
     const { diaDeEvento, actividadFisica, alimentacionSaludable, minSueño } = req.body;
+    const eventDate = new Date(diaDeEvento);
+    const formattedDate = `${eventDate.getFullYear()}_${(eventDate.getMonth() + 1).toString().padStart(2, '0')}_${eventDate.getDate().toString().padStart(2, '0')}`;
 
     if (!diaDeEvento) {
         return res.status(400).send({ error: 'El campo diaDeEvento es requerido' });
@@ -292,7 +313,7 @@ app.post('/habitos-saludables', verifyToken, async (req, res) => {
     };
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
             'habitos_saludables': habitosSaludables,
         }, { merge: true });
 
@@ -311,7 +332,13 @@ app.delete('/evento', verifyToken, async (req, res) => {
     }
 
     try {
-        const eventoRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento);
+        const eventDate = new Date(diaDeEvento);
+        const formattedDate = `${eventDate.getFullYear()}_${(eventDate.getMonth() + 1).toString().padStart(2, '0')}_${eventDate.getDate().toString().padStart(2, '0')}`;
+
+        console.log("formattedDate  " + formattedDate)
+
+        const eventoRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+
         const eventoSnapshot = await eventoRef.get();
 
         if (!eventoSnapshot.exists) {
@@ -336,6 +363,7 @@ app.delete('/evento', verifyToken, async (req, res) => {
 
         res.send({ success: true });
     } catch (error) {
+        console.error(error);
         res.status(500).send({ error: 'Error al eliminar el evento' });
     }
 });
