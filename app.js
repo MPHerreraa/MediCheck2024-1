@@ -5,6 +5,7 @@ const cors = require('cors');
 const { db } = require('./src/firebase');
 const admin = require('firebase-admin');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const corsOptions = {
@@ -17,6 +18,32 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'src')));
+
+function enviarCorreo(destinatario, asunto, mensaje, correoElectronico, contraseña) {
+    // Configura el transportador con las credenciales del usuario registrado
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: correoElectronico, // Correo electrónico del usuario
+        pass: contraseña,        // Contraseña del usuario
+      },
+    });
+  
+    const mailOptions = {
+      from: correoElectronico,
+      to: destinatario,
+      subject: asunto,
+      text: mensaje,
+    };
+  
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.log('Error al enviar el correo:', error);
+      } else {
+        console.log('Correo enviado:', info.response);
+      }
+    });
+  }
 
 const formatDateToDocId = (isoDate) => {
     const date = new Date(isoDate);
@@ -96,8 +123,8 @@ app.post('/register', verifyToken, async (req, res) => {
     }
 });
 
-app.post('/login', verifyToken, async (req, res) => {
-    const { correoElectronico, contraseña } = req.body;
+app.post('/login', async (req, res) => {
+    const { nombreUsuario, contraseña } = req.body;
 
     if (!correoElectronico || !contraseña) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
@@ -288,20 +315,11 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
     const allFalse = !habitosNoSaludables.ConsumoDeAlcohol && !habitosNoSaludables.ConsumoDeTabaco;
 
     try {
-        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+            'habitos_no_saludables': habitosNoSaludables
+        }, { merge: true });
 
-        if (allFalse) {
-            await eventRef.update({
-                habitos_no_saludables: FieldValue.delete(),
-            });
-            res.send({ success: true, message: 'Hábitos no saludables eliminados porque todos son falsos' });
-        } else {
-            await eventRef.set(
-                { habitos_no_saludables: habitosNoSaludables },
-                { merge: true }
-            );
-            res.send({ success: true, habitosNoSaludables });
-        }
+        res.send({ success: true, habitosNoSaludables });
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos no saludables' });
     }
@@ -324,23 +342,12 @@ app.post('/habitos-saludables', verifyToken, async (req, res) => {
         TimestampHabitosSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
 
-    const allFalse = !habitosSaludables.ActividadFisica && !habitosSaludables.AlimentacionSaludable && !habitosSaludables.MinSueño;
-
     try {
-        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
+            'habitos_saludables': habitosSaludables,
+        }, { merge: true });
 
-        if (allFalse) {
-            await eventRef.update({
-                habitos_saludables: FieldValue.delete(),
-            });
-            res.send({ success: true, message: 'Habitos saludables eliminados porque todos son falsos' });
-        } else {
-            await eventRef.set(
-                { habitos_saludables: habitosSaludables },
-                { merge: true }
-            );
-            res.send({ success: true, habitosSaludables });
-        }
+        res.send({ success: true, habitosSaludables });
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos saludables' });
     }
@@ -395,4 +402,4 @@ app.delete('/evento', verifyToken, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
-});
+})
