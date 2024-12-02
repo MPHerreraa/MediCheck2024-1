@@ -74,4 +74,4 @@ document.getElementById('googleLogin').addEventListener('click', async () => {
     } catch (error) {
         alert('Error en el inicio de sesión con Google: ' + error.message);
     }
-})
+});

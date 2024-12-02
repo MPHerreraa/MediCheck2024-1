@@ -6,6 +6,9 @@ const { db } = require('./src/firebase');
 const admin = require('firebase-admin');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 const nodemailer = require('nodemailer');
+const sgTransport = require('nodemailer-sendgrid-transport');
+const emailHtml =  require('./htmls/register-email')
+
 
 const app = express();
 const corsOptions = {
@@ -19,32 +22,31 @@ app.use(express.json());
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'src')));
 
-function enviarCorreo(destinatario, asunto, mensaje, correoElectronico, contraseña) {
-    // Configura el transportador con las credenciales del usuario registrado
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: correoElectronico, // Correo electrónico del usuario
-        pass: contraseña,        // Contraseña del usuario
-      },
-    });
-  
-    const mailOptions = {
-      from: correoElectronico,
-      to: destinatario,
-      subject: asunto,
-      text: mensaje,
-    };
-  
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.log('Error al enviar el correo:', error);
-      } else {
-        console.log('Correo enviado:', info.response);
-      }
-    });
-  }
 
+const transporter = nodemailer.createTransport(sgTransport({
+  auth: {
+    api_key: process.env.EMAIL_API_KEY
+  }
+}));
+
+function enviarCorreo(asunto, correoElectronico, text ) {
+    console.log('Se entro a enviarCorreo')
+
+    const mailOptions = {
+        from: 'medicheck2024@gmail.com',
+        to: correoElectronico,
+        subject: asunto,
+        text:text
+      };
+      
+      transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+          console.log('Error al enviar el correo:', error);
+        } else {
+          console.log('Correo enviado:', info.response);
+        }
+      });
+  }
 const formatDateToDocId = (isoDate) => {
     const date = new Date(isoDate);
     return new Intl.DateTimeFormat('es-ES', {
@@ -117,14 +119,23 @@ app.post('/register', verifyToken, async (req, res) => {
             Contraseña: contraseña,
             rol: rol
         }, { merge: true });
-        res.status(200).send({ success: true });
+        const userDoc = await db.collection('Usuarios').doc(req.uid).get();
+        console.log(userDoc)
+        enviarCorreo('Creación de cuenta en MediCheck', userDoc.data().CorreoElectronico, 'Se ha creado una cuenta exitosamente en Medicheck' )
+
+        res.status(200).send({ 
+            success: true,
+            rol: rol,
+            CorreoElectronico: correoElectronico,
+            NombreUsuario: nombreUsuario
+         });
     } catch (error) {
         res.status(500).send({ success: false, message: error.message });
     }
 });
 
-app.post('/login', async (req, res) => {
-    const { nombreUsuario, contraseña } = req.body;
+app.post('/login', verifyToken, async (req, res) => {
+    const { correoElectronico, contraseña } = req.body;
 
     if (!correoElectronico || !contraseña) {
         return res.status(400).send({ error: 'Todos los campos son requeridos' });
@@ -140,11 +151,20 @@ app.post('/login', async (req, res) => {
             return res.status(401).send({ error: 'Correo o contraseña incorrectos' });
         }
 
-        res.status(200).send({ success: true });
+        const userDoc = userQuery.docs[0];
+        const userData = userDoc.data();
+
+        res.status(200).send({ 
+            success: true, 
+            rol: userData.rol,
+            CorreoElectronico: userData.CorreoElectronico,
+            NombreUsuario: userData.NombreUsuario
+        });
     } catch (error) {
         res.status(500).send({ success: false, message: error.message });
     }
 });
+
 
 app.post('/login-google', async (req, res) => {
     const { tokenId } = req.body;
@@ -155,6 +175,7 @@ app.post('/login-google', async (req, res) => {
 
         const userRef = db.collection('Usuarios').doc(uid);
         const userDoc = await userRef.get();
+        const userData = userDoc.data();
 
         if (!userDoc.exists) {
             await userRef.set({
@@ -164,7 +185,12 @@ app.post('/login-google', async (req, res) => {
             });
         }
 
-        res.status(200).send({ success: true });
+        res.status(200).send({ 
+            success: true, 
+            rol: userData.rol,
+            CorreoElectronico: userData.CorreoElectronico,
+            NombreUsuario: userData.NombreUsuario
+        });
     } catch (error) {
         res.status(500).send({ success: false, message: error.message });
     }
@@ -187,7 +213,7 @@ app.get('/user-role', verifyToken, async (req, res) => {
 });
 
 app.get('/patients', verifyToken, checkDoctorRole, async (req, res) => {
-    try {
+    try { 
         const patientsSnapshot = await db.collection('Usuarios')
             .where('rol', '==', 'patient')
             .get();
@@ -198,7 +224,6 @@ app.get('/patients', verifyToken, checkDoctorRole, async (req, res) => {
             ...doc.data(),
             Contraseña: undefined
         }));
-
 
         res.send(patients);
     } catch (error) {
@@ -259,12 +284,14 @@ app.post('/vacuna', verifyToken, async (req, res) => {
         await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
             'vacunacion': admin.firestore.FieldValue.arrayUnion(vacunaData)
         }, { merge: true });
-
+        const userDoc = await db.collection('Usuarios').doc(req.uid).get();
+        enviarCorreo('Creación de evento vacuna', userDoc.data().CorreoElectronico, 'Se ha agendado una vacuna exitosamente en el calendario de Medicheck' ) 
         res.send({ success: true, vacunaData });
     } catch (error) {
         console.error(error);
         res.status(500).send({ error: 'Error al registrar la vacuna' });
     }
+    
 });
 
 // Endpoints de medicación
@@ -289,7 +316,8 @@ app.post('/medicacion', verifyToken, async (req, res) => {
         await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate).set({
             'medicacion': FieldValue.arrayUnion(medicacionData)
         }, { merge: true });
-
+        const userDoc = await db.collection('Usuarios').doc(req.uid).get();
+        enviarCorreo('Creación de evento medicacion', userDoc.data().CorreoElectronico, 'Se ha agendado un medicamento exitosamente en el calendario de Medicheck' ) 
         res.send({ success: true, medicacionData });
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar la medicación' });
@@ -315,11 +343,20 @@ app.post('/habitos-no-saludables', verifyToken, async (req, res) => {
     const allFalse = !habitosNoSaludables.ConsumoDeAlcohol && !habitosNoSaludables.ConsumoDeTabaco;
 
     try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
-            'habitos_no_saludables': habitosNoSaludables
-        }, { merge: true });
+        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
 
-        res.send({ success: true, habitosNoSaludables });
+        if (allFalse) {
+            await eventRef.update({
+                habitos_no_saludables: FieldValue.delete(),
+            });
+            res.send({ success: true, message: 'Hábitos no saludables eliminados porque todos son falsos' });
+        } else {
+            await eventRef.set(
+                { habitos_no_saludables: habitosNoSaludables },
+                { merge: true }
+            );
+            res.send({ success: true, habitosNoSaludables });
+        }
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos no saludables' });
     }
@@ -342,12 +379,23 @@ app.post('/habitos-saludables', verifyToken, async (req, res) => {
         TimestampHabitosSaludables: Timestamp.fromDate(new Date(diaDeEvento)),
     };
 
-    try {
-        await db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(diaDeEvento).set({
-            'habitos_saludables': habitosSaludables,
-        }, { merge: true });
+    const allFalse = !habitosSaludables.ActividadFisica && !habitosSaludables.AlimentacionSaludable && !habitosSaludables.MinSueño;
 
-        res.send({ success: true, habitosSaludables });
+    try {
+        const eventRef = db.collection('Usuarios').doc(req.uid).collection('Eventos').doc(formattedDate);
+
+        if (allFalse) {
+            await eventRef.update({
+                habitos_saludables: FieldValue.delete(),
+            });
+            res.send({ success: true, message: 'Habitos saludables eliminados porque todos son falsos' });
+        } else {
+            await eventRef.set(
+                { habitos_saludables: habitosSaludables },
+                { merge: true }
+            );
+            res.send({ success: true, habitosSaludables });
+        }
     } catch (error) {
         res.status(500).send({ error: 'Error al registrar los hábitos saludables' });
     }
@@ -402,4 +450,4 @@ app.delete('/evento', verifyToken, async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en el puerto ${PORT}`);
-})
+});

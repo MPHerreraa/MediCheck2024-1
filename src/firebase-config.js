@@ -5,14 +5,15 @@ import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCyfTSKJ1ZsTbdvWkIPekJrdp8VjG7YlCg",
-    authDomain: "medicheck-4ab95.firebaseapp.com",
-    projectId: "medicheck-4ab95",
-    storageBucket: "medicheck-4ab95.appspot.com",
-    messagingSenderId: "388747719771",
-    appId: "1:388747719771:web:755798c184858c80d3fb7e",
-    measurementId: "G-Q3SFNRTTYT"
-  };
+  apiKey: "AIzaSyBcQ72kxcNL3Ts70W9fzvCHWCZ6QRvHdXQ",
+  authDomain: "medicheckf-3fdec.firebaseapp.com",
+  projectId: "medicheckf-3fdec",
+  storageBucket: "medicheckf-3fdec.firebasestorage.app",
+  messagingSenderId: "250853813007",
+  appId: "1:250853813007:web:d75953a90a808dd4486c7a",
+  measurementId: "G-L9PTKEN06Y"
+};
+
 
 if (!firebase.apps.length) {
   firebase.initializeApp(firebaseConfig);
