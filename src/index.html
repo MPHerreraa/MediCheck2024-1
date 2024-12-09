@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Formulario de Evento</title>
+</head>
+<body>
+    <form id="eventoForm">
+        <!-- Vacuna -->
+        <h3>Registrar Vacuna</h3>
+        <label for="diaVacuna">Día del Evento:</label>
+        <input type="date" id="diaVacuna" name="diaVacuna" required>
+
+
+        <label for="nombreVacuna">Nombre de la Vacuna:</label>
+        <input type="text" id="nombreVacuna" name="nombreVacuna" required>
+
+
+        <label for="notasVacunacion">Notas:</label>
+        <textarea id="notasVacunacion" name="notasVacunacion"></textarea>
+       
+        <button type="button" onclick="registrarVacuna()">Registrar Vacuna</button>
+
+
+        <!-- Medicación -->
+        <h3>Registrar Medicación</h3>
+        <label for="diaMedicacion">Día del Evento:</label>
+        <input type="date" id="diaMedicacion" name="diaMedicacion" required>
+
+
+        <label for="nombreMedicacion">Nombre del Medicamento:</label>
+        <input type="text" id="nombreMedicacion" name="nombreMedicacion" required>
+
+
+        <label for="cantidadMedicacion">Cantidad:</label>
+        <input type="text" id="cantidadMedicacion" name="cantidadMedicacion" required>
+
+
+        <label for="notasMedicacion">Notas:</label>
+        <textarea id="notasMedicacion" name="notasMedicacion"></textarea>
+       
+        <button type="button" onclick="registrarMedicacion()">Registrar Medicación</button>
+
+
+        <!-- Hábitos -->
+        <h3>Registrar Hábitos</h3>
+        <label for="diaHabitos">Día del Evento:</label>
+        <input type="date" id="diaHabitos" name="diaHabitos" required>
+
+
+        <h4>Hábitos Saludables</h4>
+        <label for="actividadFisica">Actividad Física:</label>
+        <input type="checkbox" id="actividadFisica" name="actividadFisica">
+
+
+        <label for="alimentacionSaludable">Alimentación Saludable:</label>
+        <input type="checkbox" id="alimentacionSaludable" name="alimentacionSaludable">
+
+
+        <label for="minSueño">Mínimo de Horas de Sueño:</label>
+        <input type="checkbox" id="minSueño" name="minSueño">
+
+
+        <h4>Hábitos No Saludables</h4>
+        <label for="consumoAlcohol">Consumo de Alcohol:</label>
+        <input type="checkbox" id="consumoAlcohol" name="consumoAlcohol">
+
+
+        <label for="consumoTabaco">Consumo de Tabaco:</label>
+        <input type="checkbox" id="consumoTabaco" name="consumoTabaco">
+       
+        <button type="button" onclick="registrarHabitos()">Registrar Hábitos</button>
+    </form>
+
+
+    <script>
+        async function registrarVacuna() {
+            const diaVacuna = document.getElementById('diaVacuna').value;
+            const nombreVacuna = document.getElementById('nombreVacuna').value;
+            const notasVacunacion = document.getElementById('notasVacunacion').value;
+
+
+            const response = await fetch('/vacuna', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    diaDeEvento: diaVacuna,
+                    nombreVacuna: nombreVacuna,
+                    notasVacunacion: notasVacunacion,
+                }),
+            });
+
+
+            const data = await response.json();
+            console.log(data);
+        }
+
+
+        async function registrarMedicacion() {
+            const diaMedicacion = document.getElementById('diaMedicacion').value;
+            const nombreMedicacion = document.getElementById('nombreMedicacion').value;
+            const cantidadMedicacion = document.getElementById('cantidadMedicacion').value;
+            const notasMedicacion = document.getElementById('notasMedicacion').value;
+
+
+            const response = await fetch('/medicacion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    diaDeEvento: diaMedicacion,
+                    nombreMedicamento: nombreMedicacion,
+                    cantidadMedicamento: cantidadMedicacion,
+                    notasMedicacion: notasMedicacion,
+                }),
+            });
+
+
+            const data = await response.json();
+            console.log(data);
+        }
+
+
+        async function registrarHabitos() {
+            const diaHabitos = document.getElementById('diaHabitos').value;
+
+
+            const habitosSaludables = {
+                ActividadFisica: document.getElementById('actividadFisica').checked,
+                AlimentacionSaludable: document.getElementById('alimentacionSaludable').checked,
+                MinSueño: document.getElementById('minSueño').checked,
+            };
+
+
+            const habitosNoSaludables = {
+                ConsumoAlcohol: document.getElementById('consumoAlcohol').checked,
+                ConsumoDeTabaco: document.getElementById('consumoTabaco').checked,
+            };
+
+
+            const response = await fetch('/habitos', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    diaDeEvento: diaHabitos,
+                    actividadFisica: habitosSaludables.ActividadFisica,
+                    alimentacionSaludable: habitosSaludables.AlimentacionSaludable,
+                    minSueño: habitosSaludables.MinSueño,
+                    consumoAlcohol: habitosNoSaludables.ConsumoAlcohol,
+                    consumoDeTabaco: habitosNoSaludables.ConsumoDeTabaco,
+                }),
+            });
+
+
+            const data = await response.json();
+            console.log(data);
+        }
+    </script>
+</body>
+</html>

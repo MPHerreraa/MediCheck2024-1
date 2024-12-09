@@ -2,11 +2,9 @@ const express = require('express');
 const morgan = require('morgan');
 const path = require('path');
 const cors = require('cors');
-
 const { db } = require('./src/firebase');
 const admin = require('firebase-admin');
 const { FieldValue, Timestamp } = require('firebase-admin/firestore');
-
 const nodemailer = require('nodemailer');
 const sgTransport = require('nodemailer-sendgrid-transport');
 const emailHtml =  require('./htmls/register-email')
@@ -24,7 +22,7 @@ app.use(express.json());
 app.use(morgan('dev'));
 app.use(express.static(path.join(__dirname, 'src')));
 
-//mail
+
 const transporter = nodemailer.createTransport(sgTransport({
   auth: {
     api_key: process.env.EMAIL_API_KEY
@@ -49,7 +47,6 @@ function enviarCorreo(asunto, correoElectronico, text ) {
         }
       });
   }
-
 const formatDateToDocId = (isoDate) => {
     const date = new Date(isoDate);
     return new Intl.DateTimeFormat('es-ES', {
@@ -60,7 +57,6 @@ const formatDateToDocId = (isoDate) => {
     }).format(date) + " UTC-3"; 
 };
 
-//token de verificacion. no permite acceso al back si no existe --> wrapper
 async function verifyToken(req, res, next) {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -76,7 +72,7 @@ async function verifyToken(req, res, next) {
         res.status(403).send({ error: 'Token inválido' });
     }
 }
-//checkea el rol del usuario --> wrapper
+
 async function checkDoctorRole(req, res, next) {
     try {
         const userDoc = await db.collection('Usuarios').doc(req.uid).get();
@@ -208,6 +204,7 @@ app.get('/user-role', verifyToken, async (req, res) => {
             return res.status(404).send({ error: 'Usuario no encontrado' });
         }
 
+
         const userData = userDoc.data();
         res.send({ role: userData.rol });
     } catch (error) {
@@ -220,6 +217,7 @@ app.get('/patients', verifyToken, checkDoctorRole, async (req, res) => {
         const patientsSnapshot = await db.collection('Usuarios')
             .where('rol', '==', 'patient')
             .get();
+
 
         const patients = patientsSnapshot.docs.map(doc => ({
             id: doc.id,
