@@ -1,13 +1,14 @@
 {
-  "version": 2,
-  "builds": [
+    "version": 2,
+    "builds": [
     {
-      "src": "app.js",
-      "use": "@vercel/node",
-      "config": { "includeFiles": ["firebase.json"] }
+        "src": "app.js",
+        "use": "@vercel/node",
+        "config": { "includeFiles": ["firebase.json"] }
     }
-  ],
-  "routes": [
+],
+
+    "routes": [
     {
       "src": "/(.*)",
       "dest": "app.js"

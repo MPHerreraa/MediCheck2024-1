@@ -1,4 +1,4 @@
 export const USER_ROLES = {
-    PATIENT: 'patient',
-    DOCTOR: 'doctor'
+    paciente: 'paciente',
+    medico: 'medico'
   };  
